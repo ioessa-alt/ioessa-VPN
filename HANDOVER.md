@@ -65,10 +65,10 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
    - **Spec mismatch found:** `AUDIT_SCOPE.md` section 2 step 5 says the responder mixes `PSK_peer` into `ck` in
      RESP; the code (`make_response`, `consume_response`) mixes `E_r` instead, and only when a PSK is set. Fix the
      doc (and ask the user before changing code, since that changes the wire key schedule).
-2. **GitHub.** Git and GitHub CLI installed with winget (open a new shell so they are on PATH). The user chose:
-   public repo `ioessa-VPN`, MIT license. `.gitignore` written (caches, the audit package, keys and state).
-   Still needed: the user runs `! gh auth login`, and gives the copyright name for `LICENSE`. Then `git init`,
-   commit as the user's GitHub identity, `gh repo create ioessa-VPN --public --source . --push`. Then enable private vulnerability reporting (`SECURITY.md`).
+2. **GitHub: published 2026-10-18** at https://github.com/ioessa-alt/ioessa-VPN (public, branch `main`, MIT
+   license held by "ioessa"). Private vulnerability reporting is enabled, so `SECURITY.md` works. Commits use the
+   no-reply address `340897441+ioessa-alt@users.noreply.github.com`; `core.autocrlf` is false (files stay LF).
+   This folder is now a git repo: commit and push changes (`git push`); `gh` is logged in as `ioessa-alt`. Then enable private vulnerability reporting (`SECURITY.md`).
 3. **Book quotes: done 2026-10-18.** Every direct quote from the books, the SANS course and the WireGuard paper
    is paraphrased, with the line or page references kept, in ZERO_TRUST, SANS, OPERATIONS, NETWORK_SECURITY,
    SRE, KEY_LIFECYCLE, WIREGUARD_COMPARISON and SIDE_CHANNEL reviews. The OCR-error lists (which quoted
