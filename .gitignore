@@ -1,0 +1,13 @@
+# Python caches
+__pycache__/
+*.pyc
+
+# The audit package is a dated snapshot for an auditor, not source. Rebuild it from tunnel\ when needed.
+audit/*.zip
+audit/MANIFEST.sha256
+
+# Never commit keys or runtime state (the code reads them from files and env vars)
+*.key
+*.key.pub
+*.created
+state.json

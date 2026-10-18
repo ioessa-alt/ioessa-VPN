@@ -1,0 +1,187 @@
+(* Symbolic (Dolev-Yao) model of the ioessa handshake, wire version 2, as written in vpn_handshake.py.
+   This is a template: run_proverif.py fills the (*@...*) markers to make one variant per attacker
+   scenario and checks ProVerif's answers against the expected ones. See FORMAL_MODEL.md.
+
+   Abstractions: X25519 is ideal Diffie-Hellman (no low-order points), ML-KEM-768 is an ideal KEM,
+   BLAKE2s and the Kdf outputs are independent random functions, the AEAD is ideal (nonce zero, one
+   message per key). mac1, mac2, cookies, timestamps and indices are left out: they are DoS and replay
+   filters, not part of the key schedule. Roles are fixed: A initiates, B responds. *)
+
+free c: channel.
+
+type G.
+type exponent.
+type kskey.
+type kpkey.
+type nonce.
+
+(* X25519 *)
+const g: G [data].
+fun exp(G, exponent): G.
+equation forall x: exponent, y: exponent; exp(exp(g, x), y) = exp(exp(g, y), x).
+fun G2b(G): bitstring [typeConverter].
+
+(* ML-KEM-768: encapsulation to a public key with fresh randomness r *)
+fun kempk(kskey): kpkey.
+fun K2b(kpkey): bitstring [typeConverter].
+fun kemct(kpkey, nonce): bitstring.
+fun kemss(kpkey, nonce): bitstring.
+reduc forall sk: kskey, r: nonce; decaps(sk, kemct(kempk(sk), r)) = kemss(kempk(sk), r).
+
+(* Hash and Kdf: _kdf(ck, x) returns (kdf1(ck, x), kdf2(ck, x)) *)
+fun h1(bitstring): bitstring.
+fun h2(bitstring, bitstring): bitstring.
+fun kdf1(bitstring, bitstring): bitstring.
+fun kdf2(bitstring, bitstring): bitstring.
+
+(* ChaCha20-Poly1305 with associated data *)
+fun aead(bitstring, bitstring, bitstring): bitstring.
+reduc forall k: bitstring, m: bitstring, ad: bitstring; aopen(k, aead(k, m, ad), ad) = m.
+
+const CONSTRUCTION: bitstring.
+const IDENTIFIER: bitstring.
+const LI2R: bitstring.
+const LR2I: bitstring.
+const EMPTY: bitstring.
+const NOPSK: bitstring.
+
+(* Long-term secrets of the honest pair *)
+free sA: exponent [private].
+free sB: exponent [private].
+free kskA: kskey [private].
+free kskB: kskey [private].
+(*@PSK_DECL*)
+
+(* The dishonest peer E: its keys and its PSK are public *)
+free sE: exponent.
+free kskE: kskey.
+free pskE: bitstring.
+
+(* Data sent under the transport keys of an honest A-B session *)
+free secretA: bitstring [private].
+free secretB: bitstring [private].
+
+event InitStarted(G, G).
+event InitDone(G, G, bitstring).
+event RespAccept(G, G, bitstring).
+event RespConfirmed(G, G, bitstring).
+
+table initPeers(G, G, kpkey, bitstring).    (* own pub, responder pub, responder ML-KEM pub, PSK *)
+table respPeers(G, G, kpkey, bitstring).    (* own pub, initiator pub, initiator ML-KEM pub, PSK *)
+
+query attacker(secretA).
+query attacker(secretB).
+query k: bitstring; event(InitDone(exp(g, sA), exp(g, sB), k)) ==> inj-event(RespAccept(exp(g, sA), exp(g, sB), k)).
+query k: bitstring; event(RespConfirmed(exp(g, sA), exp(g, sB), k)) ==> event(InitDone(exp(g, sA), exp(g, sB), k)).
+query k: bitstring; event(RespAccept(exp(g, sA), exp(g, sB), k)) ==> event(InitStarted(exp(g, sA), exp(g, sB))).
+
+(* consume_response, after the optional PSK-dependent mix of E_r *)
+let InitTail(pkA: G, pkR: G, eA: exponent, er: G, ctr: bitstring, conf: bitstring, h4: bitstring,
+             ck5: bitstring) =
+  let h5 = h2(h2(h4, G2b(er)), ctr) in
+  let ck6 = kdf1(ck5, G2b(exp(er, eA))) in                (* DH(Epriv_i, Epub_r) *)
+  let ck7 = kdf1(ck6, G2b(exp(er, sA))) in                (* DH(Spriv_i, Epub_r) *)
+  let ssr = decaps(kskA, ctr) in
+  let k3 = kdf2(ck7, ssr) in
+  let ck8 = kdf1(ck7, ssr) in
+  let ok = aopen(k3, conf, h5) in                         (* responder key confirmation *)
+  if ok = EMPTY then
+  let ki2r = kdf1(ck8, LI2R) in
+  event InitDone(pkA, pkR, ki2r);
+  if pkR = exp(g, sB) then out(c, aead(ki2r, secretA, EMPTY)).
+
+(* make_initiation, then consume_response *)
+let Initiator =
+  let pkA = exp(g, sA) in
+  in(c, pkR: G);
+  get initPeers(=pkA, =pkR, kpkR, psk) in
+  new eA: exponent;
+  (*@LEAK_EA*)
+  new r: nonce;
+  new ts: bitstring;
+  event InitStarted(pkA, pkR);
+  let ck0 = h1(CONSTRUCTION) in
+  let h0 = h2(h2(h2(ck0, IDENTIFIER), G2b(pkR)), K2b(kpkR)) in
+  let epub = exp(g, eA) in
+  let hE = h2(h0, G2b(epub)) in
+  let ct = kemct(kpkR, r) in
+  let hC = h2(hE, ct) in
+  let ck1 = kdf1(ck0, kemss(kpkR, r)) in                  (* post-quantum secret *)
+  let es = G2b(exp(pkR, eA)) in
+  let k1 = kdf2(ck1, es) in
+  let ck2 = kdf1(ck1, es) in
+  let encS = aead(k1, G2b(pkA), hC) in
+  let h3 = h2(hC, encS) in
+  let ck3 = kdf1(ck2, psk) in                             (* this peer's PSK *)
+  let st = G2b(exp(pkR, sA)) in
+  let k2 = kdf2(ck3, st) in
+  let ck4 = kdf1(ck3, st) in
+  let encT = aead(k2, ts, h3) in
+  let h4 = h2(h3, encT) in
+  out(c, (epub, ct, encS, encT));
+  in(c, (er: G, ctr: bitstring, conf: bitstring));
+  if psk = NOPSK then InitTail(pkA, pkR, eA, er, ctr, conf, h4, ck4)
+  else InitTail(pkA, pkR, eA, er, ctr, conf, h4, kdf1(ck4, G2b(er))).
+
+(* make_response, from after the optional PSK-dependent mix of E_r *)
+let RespTail(pkB: G, pkI: G, kpkI: kpkey, ei: G, eB: exponent, r: nonce, h4: bitstring, ck5: bitstring) =
+  let er = exp(g, eB) in
+  let ctr = kemct(kpkI, r) in
+  let h5 = h2(h2(h4, G2b(er)), ctr) in
+  let ck6 = kdf1(ck5, G2b(exp(ei, eB))) in                (* DH(Epriv_r, Epub_i) *)
+  let ck7 = kdf1(ck6, G2b(exp(pkI, eB))) in               (* DH(Epriv_r, Spub_i) *)
+  let ssr = kemss(kpkI, r) in
+  let k3 = kdf2(ck7, ssr) in
+  let ck8 = kdf1(ck7, ssr) in
+  let conf = aead(k3, EMPTY, h5) in
+  let ki2r = kdf1(ck8, LI2R) in
+  let kr2i = kdf1(ck8, LR2I) in
+  event RespAccept(pkI, pkB, ki2r);
+  out(c, (er, ctr, conf));
+  if pkI = exp(g, sA) then
+    (out(c, aead(kr2i, secretB, EMPTY))
+     | (in(c, d: bitstring); let m = aopen(ki2r, d, EMPTY) in event RespConfirmed(pkI, pkB, ki2r))).
+
+(* consume_initiation, finish_initiation, then make_response *)
+let Responder =
+  let pkB = exp(g, sB) in
+  let kpkB = kempk(kskB) in
+  in(c, (ei: G, ct: bitstring, encS: bitstring, encT: bitstring));
+  let ck0 = h1(CONSTRUCTION) in
+  let h0 = h2(h2(h2(ck0, IDENTIFIER), G2b(pkB)), K2b(kpkB)) in
+  let hC = h2(h2(h0, G2b(ei)), ct) in
+  let ck1 = kdf1(ck0, decaps(kskB, ct)) in
+  let es = G2b(exp(ei, sB)) in
+  let k1 = kdf2(ck1, es) in
+  let ck2 = kdf1(ck1, es) in
+  let G2b(pkI) = aopen(k1, encS, hC) in
+  let h3 = h2(hC, encS) in
+  get respPeers(=pkB, =pkI, kpkI, psk) in
+  let ck3 = kdf1(ck2, psk) in
+  let st = G2b(exp(pkI, sB)) in
+  let k2 = kdf2(ck3, st) in
+  let ck4 = kdf1(ck3, st) in
+  let ts = aopen(k2, encT, h3) in
+  let h4 = h2(h3, encT) in
+  new eB: exponent;
+  (*@LEAK_EB*)
+  new r: nonce;
+  if psk = NOPSK then RespTail(pkB, pkI, kpkI, ei, eB, r, h4, ck4)
+  else RespTail(pkB, pkI, kpkI, ei, eB, r, h4, kdf1(ck4, G2b(exp(g, eB)))).
+
+process
+  let pkA = exp(g, sA) in
+  let pkB = exp(g, sB) in
+  let kpkA = kempk(kskA) in
+  let kpkB = kempk(kskB) in
+  out(c, (pkA, pkB, kpkA, kpkB));
+  (*@LEAK_NOW*)
+  insert initPeers(pkA, pkB, kpkB, pskAB);
+  insert respPeers(pkB, pkA, kpkA, pskAB);
+  (* E is a dishonest peer: A and B both accept it, and the attacker holds all of its keys *)
+  insert initPeers(pkA, exp(g, sE), kempk(kskE), pskE);
+  insert respPeers(pkB, exp(g, sE), kempk(kskE), pskE);
+  ( (!Initiator)
+  | (!Responder)
+  (*@LATER*)
+  )

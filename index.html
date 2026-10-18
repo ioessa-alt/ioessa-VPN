@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock VPN</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main>
+  <section id="login" class="card hidden">
+    <h1>Mock VPN</h1>
+    <p class="sub">Simulated client. No traffic is routed.</p>
+    <form id="loginForm" autocomplete="off">
+      <label for="user">Username</label>
+      <input id="user" name="username" required maxlength="64" autocomplete="username">
+      <label for="pass">Password</label>
+      <input id="pass" name="password" type="password" required maxlength="256" autocomplete="current-password">
+      <button type="submit" id="loginBtn">Sign in</button>
+      <p class="error" id="loginErr"></p>
+    </form>
+  </section>
+
+  <section id="dash" class="hidden">
+    <div class="card">
+      <div class="status"><span class="dot" id="dot"></span><span id="state">Disconnected</span></div>
+      <label for="server">Server</label>
+      <select id="server"></select>
+      <button id="toggle">Connect</button>
+      <p class="error" id="dashErr"></p>
+    </div>
+
+    <div class="card hidden" id="details">
+      <div class="grid">
+        <div class="stat"><small>Location</small><span id="city">-</span></div>
+        <div class="stat"><small>Virtual IP</small><span id="vip">-</span></div>
+        <div class="stat"><small>Uptime</small><span id="uptime">-</span></div>
+        <div class="stat"><small>Mode</small><span class="badge">simulation</span></div>
+        <div class="stat"><small>Received</small><span id="rx">-</span></div>
+        <div class="stat"><small>Sent</small><span id="tx">-</span></div>
+      </div>
+    </div>
+
+    <button class="secondary" id="logout">Sign out</button>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
