@@ -70,7 +70,7 @@ if (Test-Path (Join-Path $Target '.git')) {
 }
 
 Step 'Installing Python packages (requirements.txt)'
-& $pyExe @pyArgs -m pip install --user --disable-pip-version-check -q -r (Join-Path $Target 'requirements.txt')
+& $pyExe @pyArgs -m pip install --user --no-input --disable-pip-version-check -q -r (Join-Path $Target 'requirements.txt')
 if ($LASTEXITCODE -ne 0) { throw 'pip install failed (see above).' }
 
 # 3. Claude memory from the carry bundle. Claude Code keys project memory by the folder path.
