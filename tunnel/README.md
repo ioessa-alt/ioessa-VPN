@@ -45,7 +45,7 @@ the `wg` tool, and it should not protect real traffic.
 - `OPEN_ISSUES.md`: consolidated list of open issues from the review documents.
 - `analysis/`: packet-analysis toolkit (pcap writer, opt-in capture, wire-format analyzer, leak and loss checks). See `analysis/`.
 
-Requires Python 3.9+ and `python -m pip install cryptography`.
+Requires Python 3.9+ and `cryptography` (`python -m pip install -r requirements.txt` in the repo root).
 
 ## Keys
 

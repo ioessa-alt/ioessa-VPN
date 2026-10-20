@@ -7,7 +7,7 @@ Do not assume a file is unchanged: other sessions edit files in this folder.
 
 **New computer:** in PowerShell run
 `irm https://raw.githubusercontent.com/ioessa-alt/ioessa-VPN/main/setup.ps1 | iex`. It installs Git and
-Python if missing (winget), clones to `%USERPROFILE%\ioessa-VPN` (or pulls), restores Claude's memory from
+Python if missing (winget), clones to `%USERPROFILE%\ioessa-VPN` (or pulls), installs `requirements.txt` (`cryptography`), restores Claude's memory from
 `ioessa-carry.zip` if it finds one in Downloads, Desktop, OneDrive or the user folder, and runs the test suites.
 Not carried: the SSH key (copy by hand), ProVerif (re-download, check the SHA-256), the audit zip (rebuild).
 

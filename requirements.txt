@@ -1,0 +1,2 @@
+# Tunnel prototype (X25519, ChaCha20-Poly1305, ML-KEM-768) and the web TLS tests (test certificates).
+cryptography==50.0.2

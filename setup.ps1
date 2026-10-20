@@ -1,10 +1,12 @@
 # Sets up ioessa-VPN on a new Windows computer. Run in PowerShell:
 #   irm https://raw.githubusercontent.com/ioessa-alt/ioessa-VPN/main/setup.ps1 | iex
-# or, with options, from a downloaded copy:
+# or, with options:
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ioessa-alt/ioessa-VPN/main/setup.ps1))) -SkipTests
+# or from a downloaded copy:
 #   .\setup.ps1 -Target D:\src\ioessa-VPN -Carry E:\ioessa-carry.zip -SkipTests
 #
 # Steps: install Git and Python with winget if missing, clone the repo (or pull if it is already there),
-# restore Claude's project memory from ioessa-carry.zip if one is found, run the test suites.
+# pip install requirements.txt (--user), restore Claude's project memory from ioessa-carry.zip if one is found, run the test suites.
 # It does not copy SSH keys, install ProVerif or rebuild the audit package (see HANDOVER.md).
 
 param(
@@ -35,7 +37,7 @@ function Ensure-Tool($name, $wingetId) {
 
 # The Microsoft Store 'python' stub exists on fresh Windows but is not a real interpreter, so check the version.
 function Find-Python {
-    foreach ($cand in @(@('py', '-3'), @('python'))) {
+    foreach ($cand in @(@('py', '-3.13'), @('python'), @('py', '-3'))) {
         $exe = $cand[0]; $rest = @($cand | Select-Object -Skip 1)
         if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) { continue }
         try { $v = & $exe @rest --version 2>&1 } catch { continue }
@@ -67,6 +69,10 @@ if (Test-Path (Join-Path $Target '.git')) {
     git -C $Target config core.autocrlf false
 }
 
+Step 'Installing Python packages (requirements.txt)'
+& $pyExe @pyArgs -m pip install --user --disable-pip-version-check -q -r (Join-Path $Target 'requirements.txt')
+if ($LASTEXITCODE -ne 0) { throw 'pip install failed (see above).' }
+
 # 3. Claude memory from the carry bundle. Claude Code keys project memory by the folder path.
 if (-not $Carry) {
     $places = @("$env:USERPROFILE\Downloads", "$env:USERPROFILE\Desktop", $env:OneDrive,
@@ -89,7 +95,7 @@ if ($Carry) {
     Write-Host 'No ioessa-carry.zip found; skipping Claude memory (pass -Carry <path> to restore it).' -ForegroundColor Yellow
 }
 
-# 4. Tests (standard library only, nothing to pip install)
+# 4. Tests
 if (-not $SkipTests) {
     $results = @()
     $suites = @(
@@ -102,7 +108,8 @@ if (-not $SkipTests) {
         Push-Location (Join-Path $Target $s.Dir)
         try {
             $ErrorActionPreference = 'Continue'
-            & $pyExe @pyArgs @($s.Args) 2>&1 | Select-Object -Last 4 | ForEach-Object { "    $_" }
+            & $pyExe @pyArgs @($s.Args) 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ } |
+                Select-Object -Last 2 | ForEach-Object { "    $_" }
             $results += "$($s.Name): " + $(if ($LASTEXITCODE -eq 0) { 'pass' } else { "FAIL (exit $LASTEXITCODE)" })
         } finally {
             $ErrorActionPreference = 'Stop'
