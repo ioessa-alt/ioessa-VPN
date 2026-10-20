@@ -1,8 +1,15 @@
 # Handover: ioessa-VPN (for a new chat)
 
 Read this first. Then read `INDEX.md` (what each part is), `tunnel\OPEN_ISSUES.md` (the list and its status
-sections), and `tunnel\SPLIT_PLAN.md` (the next planned task). Nothing here is in git. Do not assume a
-file is unchanged: other sessions edit files in this folder.
+sections), and `tunnel\SPLIT_PLAN.md` (the next planned task). The repo is public on GitHub: keep
+personal machine details out of it (they are in Claude's project memory, carried in `ioessa-carry.zip`).
+Do not assume a file is unchanged: other sessions edit files in this folder.
+
+**New computer:** in PowerShell run
+`irm https://raw.githubusercontent.com/ioessa-alt/ioessa-VPN/main/setup.ps1 | iex`. It installs Git and
+Python if missing (winget), clones to `%USERPROFILE%\ioessa-VPN` (or pulls), restores Claude's memory from
+`ioessa-carry.zip` if it finds one in Downloads, Desktop, OneDrive or the user folder, and runs the test suites.
+Not carried: the SSH key (copy by hand), ProVerif (re-download, check the SHA-256), the audit zip (rebuild).
 
 ## 1. What this is
 
@@ -74,9 +81,9 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
    SRE, KEY_LIFECYCLE, WIREGUARD_COMPARISON and SIDE_CHANNEL reviews. The OCR-error lists (which quoted
    garbled course text) became short notes. Quotes left are section titles and the project's own wording.
    The old `audit\` zip still has the quoted versions: keep it out of git, and rebuild it before sending.
-4. **Real VPN.** The user chose: WireGuard for real traffic now, keep developing ioessa alongside. Not started.
-   Needs a server: ask whether the user has a VPS or wants a WireGuard-capable VPN provider. Note for them:
-   Rosenpass (post-quantum add-on) does not run on Windows clients, as far as known; check before promising it.
+4. **Real VPN (2026-10-18).** Plan: own WireGuard server on a free cloud VM (Ubuntu, UDP 51820), then run
+   ioessa on the same VM as its first real-network test. The user's personal setup details are in Claude's
+   project memory (`personal-setup`), not here.
 
 - **Core split (`tunnel\SPLIT_PLAN.md`).** Done 2026-10-17, shim removed: every file imports from
   the `vpn_*` modules. In tests, patch a name in the module that looks it up (for example `vpn_node.make_response`).
