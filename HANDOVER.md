@@ -69,13 +69,12 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
    - Next: run it, then write `tunnel\formal\FORMAL_MODEL.md` with the results.
    - Expected finding to confirm: `pq_fs` (X25519 broken now, long-term keys stolen later) breaks secrecy, because
      both ML-KEM encapsulations go to static keys: no post-quantum forward secrecy. Answer to AUDIT_SCOPE question 4.
-   - **Spec mismatch found:** `AUDIT_SCOPE.md` section 2 step 5 says the responder mixes `PSK_peer` into `ck` in
-     RESP; the code (`make_response`, `consume_response`) mixes `E_r` instead, and only when a PSK is set. Fix the
-     doc (and ask the user before changing code, since that changes the wire key schedule).
+   - **Spec mismatch: fixed in the doc.** `AUDIT_SCOPE.md` section 2 step 5 now says RESP mixes `E_r` (only when
+     a PSK is set), as `make_response` and `consume_response` do. Code unchanged (checked 2026-10-19).
 2. **GitHub: published 2026-10-18** at https://github.com/ioessa-alt/ioessa-VPN (public, branch `main`, MIT
    license held by "ioessa"). Private vulnerability reporting is enabled, so `SECURITY.md` works. Commits use the
    no-reply address `340897441+ioessa-alt@users.noreply.github.com`; `core.autocrlf` is false (files stay LF).
-   This folder is now a git repo: commit and push changes (`git push`); `gh` is logged in as `ioessa-alt`. Then enable private vulnerability reporting (`SECURITY.md`).
+   This folder is now a git repo: commit and push changes (`git push`); `gh` is logged in as `ioessa-alt`. Private vulnerability reporting confirmed enabled via the API (2026-10-19).
 3. **Book quotes: done 2026-10-18.** Every direct quote from the books, the SANS course and the WireGuard paper
    is paraphrased, with the line or page references kept, in ZERO_TRUST, SANS, OPERATIONS, NETWORK_SECURITY,
    SRE, KEY_LIFECYCLE, WIREGUARD_COMPARISON and SIDE_CHANNEL reviews. The OCR-error lists (which quoted
@@ -94,8 +93,7 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
   Not shown: that it blocks real traffic, since this network has no IPv6 internet (a ping to a public IPv6 address
   failed with or without the rule). Re-check on a network with IPv6.
 - **Disclosure policy (`SECURITY.md`)**: written 2026-10-17. Reports go through GitHub private vulnerability
-  reporting (the user's choice; no email address). The project is not on GitHub yet: once it is, the user must
-  turn on Settings > Security > Private vulnerability reporting, or the link in `SECURITY.md` leads nowhere.
+  reporting (the user's choice; no email address). It is enabled on the GitHub repo (checked 2026-10-19).
   The 7-day acknowledgement and 90-day disclosure are defaults I chose; change them if the user asks.
 - **External audit** is not done. The package is ready (2026-10-17): `audit\AUDIT_REQUEST.md` (quote request
   and firm list), `audit\ioessa-tunnel-audit-2026-10-17.zip` and `audit\MANIFEST.sha256` (56 files; the
