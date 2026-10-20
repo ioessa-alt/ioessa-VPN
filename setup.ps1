@@ -20,6 +20,14 @@ $Repo = 'https://github.com/ioessa-alt/ioessa-VPN.git'
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 
+# Run a native command. Git and pip print progress on stderr, which Windows PowerShell 5.1 turns into a
+# terminating error under 'Stop' when output is redirected, so judge success by the exit code instead.
+function Native([string]$what, [scriptblock]$cmd) {
+    $ErrorActionPreference = 'Continue'
+    & $cmd 2>&1 | ForEach-Object { "$_" }
+    if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE)." }
+}
+
 function Refresh-Path {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                 [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -28,7 +36,7 @@ function Refresh-Path {
 function Ensure-Tool($name, $wingetId) {
     if (Get-Command $name -ErrorAction SilentlyContinue) { return }
     Step "Installing $wingetId with winget"
-    winget install -e --id $wingetId --accept-package-agreements --accept-source-agreements
+    Native 'winget' { winget install -e --id $wingetId --accept-package-agreements --accept-source-agreements }
     Refresh-Path
     if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
         throw "$name is still not on PATH. Open a new PowerShell window and run this again."
@@ -51,7 +59,7 @@ Ensure-Tool 'git' 'Git.Git'
 $py = Find-Python
 if (-not $py) {
     Step 'Installing Python 3.13 with winget'
-    winget install -e --id Python.Python.3.13 --accept-package-agreements --accept-source-agreements
+    Native 'winget' { winget install -e --id Python.Python.3.13 --accept-package-agreements --accept-source-agreements }
     Refresh-Path
     $py = Find-Python
     if (-not $py) { throw 'Python 3.11+ not found. Open a new PowerShell window and run this again.' }
@@ -62,16 +70,15 @@ Step ("Python: " + (& $pyExe @pyArgs --version))
 # 2. Repo (files stay LF, as on the original machine)
 if (Test-Path (Join-Path $Target '.git')) {
     Step "Pulling in $Target"
-    git -C $Target pull --ff-only
+    Native 'git pull' { git -C $Target pull --ff-only }
 } else {
     Step "Cloning to $Target"
-    git -c core.autocrlf=false clone $Repo $Target
-    git -C $Target config core.autocrlf false
+    Native 'git clone' { git -c core.autocrlf=false clone $Repo $Target }
+    Native 'git config' { git -C $Target config core.autocrlf false }
 }
 
 Step 'Installing Python packages (requirements.txt)'
-& $pyExe @pyArgs -m pip install --user --no-input --disable-pip-version-check -q -r (Join-Path $Target 'requirements.txt')
-if ($LASTEXITCODE -ne 0) { throw 'pip install failed (see above).' }
+Native 'pip install' { & $pyExe @pyArgs -m pip install --user --no-input --disable-pip-version-check -q -r (Join-Path $Target 'requirements.txt') }
 
 # 3. Claude memory from the carry bundle. Claude Code keys project memory by the folder path.
 if (-not $Carry) {
