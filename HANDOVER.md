@@ -98,7 +98,7 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
   reporting (the user's choice; no email address). It is enabled on the GitHub repo (checked 2026-10-19).
   The 7-day acknowledgement and 90-day disclosure are defaults I chose; change them if the user asks.
 - **Self-audit done 2026-10-21** (`tunnel\SELF_AUDIT.md`, not independent; the user cannot afford a firm):
-  12 findings, S1-S3 fixed with tests, S4-S12 open. Next: fix S5-S7 and S10, then rebuild the package.
+  12 findings, S1-S3 fixed with tests, S4-S12 open (S9 unconfirmed, Linux only). Next: fix S5-S7 and S10, then rebuild the package.
 - **External audit** is not done. The package is ready (2026-10-17): `audit\AUDIT_REQUEST.md` (quote request
   and firm list), `audit\ioessa-tunnel-audit-2026-10-20.zip` and `audit\MANIFEST.sha256` (59 files, rebuilt
   2026-10-20 with `FORMAL_MODEL.md` and the paraphrased reviews; the unpacked zip passes 287 tests). The user sends the requests. Rebuild the package if `tunnel\` changes.

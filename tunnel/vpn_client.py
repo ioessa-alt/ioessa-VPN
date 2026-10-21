@@ -215,7 +215,10 @@ def main():
     except RuntimeError as e:
         raise SystemExit(f"error: {e}")
     # One candidate peer per configured server key (duplicates removed). See handshake_any.
-    server_entries = list(dict.fromkeys(load_peer_entries(args.peer_key_file)))
+    try:
+        server_entries = list(dict.fromkeys(load_peer_entries(args.peer_key_file)))
+    except RuntimeError as e:
+        raise SystemExit(f"error: {e}")
     psk = load_psk() if args.use_psk else b""
     server = (args.server, args.port)
     kem = load_kem_private(args.kem_key_file)

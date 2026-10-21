@@ -12,7 +12,9 @@ from vpn_constants import KEM_KEY_ENV, KEM_KEY_FILE_ENV, KEY_ENV, KEY_FILE_ENV, 
 from vpn_crypto import check_psk, kem_private_from_b64, kem_public_from_b64, private_key_from_b64, public_key_from_b64
 
 WINDOWS_TRUSTED = ("SYSTEM", "Administrators")      # principals allowed on a key file, besides the user
-WINDOWS_INHERIT_FLAGS = {"I", "OI", "CI", "IO", "NP"}   # icacls flags that grant nothing; every other token is a right
+# icacls tokens that grant nothing: inheritance flags, (N) for no access, and the integrity-label policies (NW, NR, NX) of a
+# "Mandatory Label" line. Every other token is a right.
+WINDOWS_INHERIT_FLAGS = {"I", "OI", "CI", "IO", "NP", "N", "NW", "NR", "NX"}
 _ICACLS_ACE = re.compile(r"([^:]+):((?:\([^)]*\))+)")
 
 
@@ -113,7 +115,10 @@ def load_peer_entries(path: Optional[str] = None) -> List[Tuple[bytes, bytes, by
                 raise RuntimeError("peer entry PSK is empty; drop the field to use the default")
         out.append((public_key_from_b64(fields[0]), kem_public_from_b64(fields[1]), psk))
     if path and any(e[2] for e in out):
-        _check_key_file_mode(path)
+        try:
+            _check_key_file_mode(path)
+        except RuntimeError as e:
+            raise RuntimeError(f"peer file holds PSKs: {e}") from None
     return out
 
 

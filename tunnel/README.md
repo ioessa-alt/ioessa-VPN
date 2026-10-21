@@ -95,7 +95,8 @@ English, so on a localized Windows the check may refuse until you remove the ext
   entry (`<X25519>:<ML-KEM>:<PSK hex>`). The PSK is mixed in after the initiator's static key, so the
   responder learns which peer it is talking to before it needs that peer's PSK. A wrong PSK fails
   silently, like any other failure, and the local log names the step. `mac1` and the cookie no longer
-  depend on the PSK.
+  depend on the PSK. A peer file that holds a PSK must be owner-only, like a private key file
+  (`chmod 600`, or an ACL for your user, SYSTEM and Administrators only); otherwise it is refused.
 - **Freshness window.** An INIT timestamp must be within 180 s of the responder's wall clock
   (`FRESHNESS_WINDOW`). A correctly signed INIT that is held back and replayed later is refused, even
   when the responder has no newer INIT on record.

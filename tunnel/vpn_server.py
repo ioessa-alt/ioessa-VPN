@@ -301,7 +301,10 @@ def main():
         if args.tun in ("linux", "windows"):
             peer.allowed_ips = [ipaddress.IPv4Network(r, strict=True) for r in tun_routes]
 
-    peer_entries = load_peer_entries(args.peer_key_file)
+    try:
+        peer_entries = load_peer_entries(args.peer_key_file)
+    except RuntimeError as e:
+        raise SystemExit(f"error: {e}")
     for pub, kem_pub, entry_psk in peer_entries:
         configure_peer(node.add_peer(pub, keepalive=args.keepalive or None, kem_pub=kem_pub,
                                      psk=entry_psk or None))

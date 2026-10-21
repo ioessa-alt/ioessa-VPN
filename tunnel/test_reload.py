@@ -33,6 +33,7 @@ class PeerRevocationTests(unittest.TestCase):
     def _write(self, text: str) -> None:
         with open(self.path, "w", encoding="ascii") as f:
             f.write(text)
+        os.chmod(self.path, 0o600)          # a peer file with a PSK must be owner-only (SELF_AUDIT S2)
 
     def _watcher(self, node, configure=lambda peer: None, check_disjoint=False):
         return PeerFileWatcher(node, self.path, configure, self.messages.append, keepalive=None,
