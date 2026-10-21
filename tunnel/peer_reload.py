@@ -51,7 +51,7 @@ class PeerFileWatcher:
         self._last = content
         try:
             entries = load_peer_entries(self.path)
-        except (RuntimeError, OSError) as e:
+        except (RuntimeError, OSError, ValueError) as e:   # ValueError: bad encoding or key (SELF_AUDIT S3)
             self.out(f"peer file reload refused, keeping current peers: {e}")
             return
         self.apply(entries)

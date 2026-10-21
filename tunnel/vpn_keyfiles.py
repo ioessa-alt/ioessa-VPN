@@ -12,7 +12,7 @@ from vpn_constants import KEM_KEY_ENV, KEM_KEY_FILE_ENV, KEY_ENV, KEY_FILE_ENV, 
 from vpn_crypto import check_psk, kem_private_from_b64, kem_public_from_b64, private_key_from_b64, public_key_from_b64
 
 WINDOWS_TRUSTED = ("SYSTEM", "Administrators")      # principals allowed on a key file, besides the user
-WINDOWS_GRANT_RIGHTS = {"F", "M", "RX", "R", "W", "D", "GR", "GW", "GA", "GX", "GE"}   # icacls rights
+WINDOWS_INHERIT_FLAGS = {"I", "OI", "CI", "IO", "NP"}   # icacls flags that grant nothing; every other token is a right
 _ICACLS_ACE = re.compile(r"([^:]+):((?:\([^)]*\))+)")
 
 
@@ -29,7 +29,8 @@ def _parse_icacls(text: str, path: str = "") -> List[Tuple[str, frozenset]]:
             tokens = re.findall(r"\(([^)]*)\)", rest)
             if "DENY" in tokens:
                 continue
-            rights = frozenset(t for t in tokens if t in WINDOWS_GRANT_RIGHTS)
+            # Specific rights print comma-joined in one group, e.g. (RD,REA,RA): split them (SELF_AUDIT S1).
+            rights = frozenset(r for t in tokens for r in t.split(",") if r and r not in WINDOWS_INHERIT_FLAGS)
             entries.append((who.rsplit("\\", 1)[-1].strip(), rights))
     return entries
 
@@ -87,7 +88,8 @@ def load_peer_entries(path: Optional[str] = None) -> List[Tuple[bytes, bytes, by
     """Peer entries from `path` or IOESSA_VPN_PEER_PUBLIC_KEY (comma or newline separated). Each entry is
     `<X25519 public key>:<ML-KEM-768 public key>` with an optional third field, `:<PSK in hex>`, which is
     that peer's pre-shared key. Without it the entry uses the node's default PSK. Returns
-    (x25519, ml-kem, psk) triples, psk b"" when the entry has none."""
+    (x25519, ml-kem, psk) triples, psk b"" when the entry has none. A file that holds a PSK gets the
+    same permission check as a private key file (SELF_AUDIT S2)."""
     if path:
         with open(path, "r", encoding="ascii") as f:
             text = f.read()
@@ -110,6 +112,8 @@ def load_peer_entries(path: Optional[str] = None) -> List[Tuple[bytes, bytes, by
             if not psk:
                 raise RuntimeError("peer entry PSK is empty; drop the field to use the default")
         out.append((public_key_from_b64(fields[0]), kem_public_from_b64(fields[1]), psk))
+    if path and any(e[2] for e in out):
+        _check_key_file_mode(path)
     return out
 
 
