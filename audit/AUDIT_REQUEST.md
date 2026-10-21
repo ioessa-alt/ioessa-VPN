@@ -69,7 +69,7 @@ an audit.
 
 | File | What it is |
 |---|---|
-| `ioessa-tunnel-audit-2026-10-17.zip` | `tunnel\` without `analysis\` and caches: code, tests, scope, reviews |
+| `ioessa-tunnel-audit-2026-10-20.zip` | `tunnel\` without `analysis\` and caches: code, tests, scope, reviews |
 | `MANIFEST.sha256` | SHA-256 of every file in the zip; the auditor cites this version |
 
 If you change any file in `tunnel\` before the audit starts, the package is out of date: ask Claude to

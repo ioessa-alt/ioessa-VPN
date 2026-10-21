@@ -11,3 +11,6 @@ audit/MANIFEST.sha256
 *.key.pub
 *.created
 state.json
+
+# ProVerif run logs
+tunnel/formal/log*.txt

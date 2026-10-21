@@ -66,7 +66,9 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
      `PROVERIF_TIMEOUT`, default 1800 s), and prints each result as it finishes. A full run with 2 jobs was
      stopped by Claude Code for low memory on 2026-10-17 (free RAM was 0.4-0.7 GB); nothing was saved. Rerun
      only when the user agrees and memory allows: `python run_proverif.py > log.txt` in `tunnel\formal`.
-   - Next: run it, then write `tunnel\formal\FORMAL_MODEL.md` with the results.
+   - 2026-10-20: `base_psk`, `base_nopsk`, `fs`, `pq_fs` done, all as expected; results in
+     `tunnel\formal\FORMAL_MODEL.md`. Still to run: `kci_nopsk`, `kem_broken`, `quantum_psk`, `quantum_nopsk`
+     (timed out at 1800 s on query 1). Runs were stopped twice for low memory.
    - Expected finding to confirm: `pq_fs` (X25519 broken now, long-term keys stolen later) breaks secrecy, because
      both ML-KEM encapsulations go to static keys: no post-quantum forward secrecy. Answer to AUDIT_SCOPE question 4.
    - **Spec mismatch: fixed in the doc.** `AUDIT_SCOPE.md` section 2 step 5 now says RESP mixes `E_r` (only when
@@ -79,7 +81,7 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
    is paraphrased, with the line or page references kept, in ZERO_TRUST, SANS, OPERATIONS, NETWORK_SECURITY,
    SRE, KEY_LIFECYCLE, WIREGUARD_COMPARISON and SIDE_CHANNEL reviews. The OCR-error lists (which quoted
    garbled course text) became short notes. Quotes left are section titles and the project's own wording.
-   The old `audit\` zip still has the quoted versions: keep it out of git, and rebuild it before sending.
+   The audit zip was rebuilt 2026-10-20 with the paraphrased versions.
 4. **Real VPN (2026-10-18).** Plan: own WireGuard server on a free cloud VM (Ubuntu, UDP 51820), then run
    ioessa on the same VM as its first real-network test. The user's personal setup details are in Claude's
    project memory (`personal-setup`), not here.
@@ -96,8 +98,8 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
   reporting (the user's choice; no email address). It is enabled on the GitHub repo (checked 2026-10-19).
   The 7-day acknowledgement and 90-day disclosure are defaults I chose; change them if the user asks.
 - **External audit** is not done. The package is ready (2026-10-17): `audit\AUDIT_REQUEST.md` (quote request
-  and firm list), `audit\ioessa-tunnel-audit-2026-10-17.zip` and `audit\MANIFEST.sha256` (56 files; the
-  unpacked zip passes 287 tests). The user sends the requests. Rebuild the package if `tunnel\` changes.
+  and firm list), `audit\ioessa-tunnel-audit-2026-10-20.zip` and `audit\MANIFEST.sha256` (59 files, rebuilt
+  2026-10-20 with `FORMAL_MODEL.md` and the paraphrased reviews; the unpacked zip passes 287 tests). The user sends the requests. Rebuild the package if `tunnel\` changes.
 - **Freshness window, bandwidth numbers and key-age limits** are defaults that the user set or accepted.
   Revisit them only if asked.
 
