@@ -6,7 +6,7 @@ compare the quotes. Fill in the parts in [brackets].
 
 ## 1. Before you send
 
-1. Unpack the zip somewhere else and run `python -m unittest` in it: it should report 287 tests, OK.
+1. Unpack the zip somewhere else and run `python -m unittest` in it: it should report 294 tests, OK.
    That proves the package is complete.
 2. Decide the budget and the date by which you need the report.
 3. Pick the contact address you will use for the audit. `SECURITY.md` uses GitHub reporting and has no
@@ -24,7 +24,7 @@ compare the quotes. Fill in the parts in [brackets].
 >   (hybrid post-quantum) and an optional per-peer pre-shared key. Transport is ChaCha20-Poly1305 with a
 >   replay window. Primitives come from the `cryptography` package; nothing implements a cipher itself.
 > - Size: about 1,600 lines for the protocol core, about 900 more for the server, client and key tools,
->   including comments. 287 unit tests, a fuzz test and a small model check are included.
+>   including comments. 294 unit tests, a fuzz test and a small model check are included.
 > - Scope document: attached (`AUDIT_SCOPE.md`). It has the message layouts, the key schedule, the claims
 >   to check, the known open items, and four specific questions.
 > - Out of scope: a Linux TUN backend, a demo web UI, and a packet-analysis toolkit.
@@ -69,7 +69,7 @@ an audit.
 
 | File | What it is |
 |---|---|
-| `ioessa-tunnel-audit-2026-10-20.zip` | `tunnel\` without `analysis\` and caches: code, tests, scope, reviews |
+| `ioessa-tunnel-audit-2026-10-21.zip` | `tunnel\` without `analysis\` and caches: code, tests, scope, reviews |
 | `MANIFEST.sha256` | SHA-256 of every file in the zip; the auditor cites this version |
 
 If you change any file in `tunnel\` before the audit starts, the package is out of date: ask Claude to

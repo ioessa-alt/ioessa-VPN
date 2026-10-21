@@ -74,7 +74,7 @@ Severity is for this prototype's threat model (`THREAT_MODEL.md`). "Fixed" means
 ## Questions (`AUDIT_SCOPE.md` §6)
 
 1. **Hybrid combination.** Sound under the stated assumptions. ProVerif finds no attack on data secrecy
-   with ML-KEM broken (`kem_broken` queries 1-2; queries 3-5 still running) or with all keys stolen
+   with ML-KEM broken (`kem_broken` queries 1-2, 4-5 true; query 3 no answer in 1800 s) or with all keys stolen
    afterwards (`fs`). The mixing order and labels match §2 (fresh-eyes review).
 2. **INIT replay across restarts.** Not fully. Replay is bounded by the 180 s freshness window, but a
    deleted or rolled-back state file reopens that window (S8).

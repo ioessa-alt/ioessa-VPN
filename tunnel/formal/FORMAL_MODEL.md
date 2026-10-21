@@ -8,7 +8,7 @@ Tool: ProVerif 2.05, Windows build (download SHA-256 `7b402ce05343e8819c8f05b871
 Queries, in order: (1) secrecy of data A->B, (2) secrecy of data B->A, (3) A authenticates B (injective),
 (4) B authenticates A at first data, (5) B authenticates A at INIT. A is the initiator, B the responder.
 
-## Results (2026-10-20)
+## Results (2026-10-20, 2026-10-21)
 
 `true` means the property holds; `false` means ProVerif found an attack. Every finished result matched its expectation.
 
@@ -19,12 +19,12 @@ Queries, in order: (1) secrecy of data A->B, (2) secrecy of data B->A, (3) A aut
 | `fs` | all long-term keys and the PSK stolen after the sessions | true | true | true | true | true |
 | `pq_fs` | X25519 broken, all long-term keys stolen after the sessions | **false** | **false** | true | true | true |
 | `quantum_nopsk` | X25519 broken, no PSK | no answer in 1800 s | not run | not run | not run | not run |
-| `quantum_psk` | X25519 broken, PSK set | not run | | | | |
-| `kem_broken` | ML-KEM broken, no PSK | not run | | | | |
+| `quantum_psk` | X25519 broken, PSK set | true | true | stopped (low memory) | not run | not run |
+| `kem_broken` | ML-KEM broken, no PSK | true | true | no answer in 1800 s | true | true |
 | `kci_nopsk` | B's static keys stolen, no PSK | no answer in 1800 s (attack expected) | not run | not run | not run | not run |
 
 The slowest query is (3), injective agreement: 352-957 s per variant. The others take 6-40 s.
-Runs stopped twice when the PC ran low on memory; only finished results are listed.
+Runs stopped three times when the PC ran low on memory; only finished results are listed.
 
 ## Findings
 
@@ -39,8 +39,8 @@ Runs stopped twice when the PC ran low on memory; only finished results are list
 
 ## Still to run
 
-`kci_nopsk`, `kem_broken`, `quantum_psk`, `quantum_nopsk` (the last with a longer `PROVERIF_TIMEOUT`):
+`kci_nopsk`, `quantum_nopsk`, `quantum_psk` queries 3-5, and `kem_broken` query 3, with a longer `PROVERIF_TIMEOUT`:
 
-    python run_proverif.py kci_nopsk kem_broken quantum_psk quantum_nopsk > log.txt
+    python run_proverif.py kci_nopsk quantum_psk quantum_nopsk kem_broken > log.txt
 
 Needs several GB of free RAM for query (3).

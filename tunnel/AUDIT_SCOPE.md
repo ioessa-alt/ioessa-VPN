@@ -67,7 +67,8 @@ apply after mac1 and before any Diffie-Hellman work.
 
 | Evidence | Where | Result |
 |---|---|---|
-| Unit and integration tests | `tunnel\test_*.py` | 287 pass in the tunnel suite (run `python -m unittest` in `tunnel\`), 2026-10-17 |
+| Unit and integration tests | `tunnel\test_*.py` | 294 pass in the tunnel suite (run `python -m unittest` in `tunnel\`), 2026-10-21 |
+| Self-audit by the authors (not independent) | `tunnel\SELF_AUDIT.md` | 12 findings, S1-S3 fixed; claims checked one by one |
 | Mutation fuzzing of the datagram entry point | `tunnel\test_fuzz.py` | Passes; seed by `IOESSA_FUZZ_SEED` |
 | Explicit-state model of the INIT timestamp rule | `tunnel\model_check_init.py` | Replay safety holds. A held-back INIT is accepted late only without the window |
 | Key-combining review | `tunnel\KEY_COMBINING_REVIEW.md` | One accepted finding (K1: responder key control) |

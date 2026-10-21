@@ -28,7 +28,7 @@ Test suites, all passing at the last run:
 
 | Suite | Command | Count |
 |---|---|---|
-| Tunnel | `python -m unittest` (in `tunnel\`) | 287 |
+| Tunnel | `python -m unittest` (in `tunnel\`) | 294 |
 | Analysis | `python -m unittest discover -s analysis -p "test_*.py"` (in `tunnel\`) | 28 |
 | Web | `python -m unittest test_web test_fuzz_web test_web_accounts test_web_tls` (in the root) | all pass |
 | INIT model check | `python model_check_init.py` (in `tunnel\`) | replay safety holds |
@@ -69,6 +69,8 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
    - 2026-10-20: `base_psk`, `base_nopsk`, `fs`, `pq_fs` done, all as expected; results in
      `tunnel\formal\FORMAL_MODEL.md`. Still to run: `kci_nopsk`, `kem_broken`, `quantum_psk`, `quantum_nopsk`
      (timed out at 1800 s on query 1). Runs were stopped twice for low memory.
+   - 2026-10-21: `kem_broken` queries 1-2, 4-5 true, query 3 no answer in 1800 s; `quantum_psk` queries 1-2 true,
+     then stopped for low memory. Still to run: `kci_nopsk`, `quantum_nopsk`, the rest of `quantum_psk`.
    - Expected finding to confirm: `pq_fs` (X25519 broken now, long-term keys stolen later) breaks secrecy, because
      both ML-KEM encapsulations go to static keys: no post-quantum forward secrecy. Answer to AUDIT_SCOPE question 4.
    - **Spec mismatch: fixed in the doc.** `AUDIT_SCOPE.md` section 2 step 5 now says RESP mixes `E_r` (only when
@@ -100,8 +102,8 @@ Wire format: version 2 (`WIRE_VERSION`). Byte 1 is the version. Peers must upgra
 - **Self-audit done 2026-10-21** (`tunnel\SELF_AUDIT.md`, not independent; the user cannot afford a firm):
   12 findings, S1-S3 fixed with tests, S4-S12 open (S9 unconfirmed, Linux only). Next: fix S5-S7 and S10, then rebuild the package.
 - **External audit** is not done. The package is ready (2026-10-17): `audit\AUDIT_REQUEST.md` (quote request
-  and firm list), `audit\ioessa-tunnel-audit-2026-10-20.zip` and `audit\MANIFEST.sha256` (59 files, rebuilt
-  2026-10-20 with `FORMAL_MODEL.md` and the paraphrased reviews; the unpacked zip passes 287 tests). The user sends the requests. Rebuild the package if `tunnel\` changes.
+  and firm list), `audit\ioessa-tunnel-audit-2026-10-21.zip` and `audit\MANIFEST.sha256` (61 files, rebuilt
+  2026-10-21 with `SELF_AUDIT.md` and its fixes; the unpacked zip passes 294 tests). The user sends the requests. Rebuild the package if `tunnel\` changes.
 - **Freshness window, bandwidth numbers and key-age limits** are defaults that the user set or accepted.
   Revisit them only if asked.
 
