@@ -72,7 +72,11 @@ class PeerFileWatcher:
         added = 0
         for pub, (kem_pub, psk) in wanted.items():
             if pub not in self.node.peers:
-                peer = self.node.add_peer(pub, keepalive=self.keepalive, kem_pub=kem_pub, psk=psk or None)
+                try:
+                    peer = self.node.add_peer(pub, keepalive=self.keepalive, kem_pub=kem_pub, psk=psk or None)
+                except ValueError as e:                 # one bad entry must not stop the others (SELF_AUDIT S10)
+                    self.out(f"peer file: a new peer was not added: {e}")
+                    continue
                 self.configure(peer)
                 if self.check_disjoint:
                     try:

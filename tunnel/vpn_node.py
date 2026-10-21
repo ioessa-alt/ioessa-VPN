@@ -426,16 +426,17 @@ class Node:
             sender = struct.unpack_from("<I", data, 4)[0]
             act.send.append((make_cookie_reply(self.pub, secs[0], src,
                                                data[INIT_MAC1:INIT_MAC1 + TAG_LEN], sender), src))
-            act.events.append(f"under load: cookie reply to {src}")
+            self._refuse(act, f"under load: cookie reply to {src}", now)   # rate-limited (SELF_AUDIT S6)
+            return
+        if not self._source_budget(src, now):
+            # A flood from one address is refused before any DH work. Spoofed sources can evade this,
+            # which is why the cookie check above is the main defence under load (V-C). Checked before
+            # the global budget, so one address cannot use up the budget of every peer (SELF_AUDIT S5).
+            self._refuse(act, f"handshake from {src} dropped: per-source INIT budget used", now)
             return
         if not self._global_hs_budget(now):
             # The node-wide handshake budget is used up. Refused before any DH work, silently on the wire.
             self._refuse(act, f"handshake from {src} dropped: global INIT budget used", now)
-            return
-        if not self._source_budget(src, now):
-            # A flood from one address is refused before any DH work. Spoofed sources can evade this,
-            # which is why the cookie check above is the main defence under load (V-C).
-            self._refuse(act, f"handshake from {src} dropped: per-source INIT budget used", now)
             return
         self._hs_times.append(now)
         try:

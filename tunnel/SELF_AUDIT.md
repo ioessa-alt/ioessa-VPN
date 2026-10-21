@@ -44,12 +44,12 @@ Severity is for this prototype's threat model (`THREAT_MODEL.md`). "Fixed" means
 | S2 | Medium | **Fixed** | A peer file holding per-peer PSKs was loaded with no permission check. | `vpn_keyfiles.py` `load_peer_entries` | Same check as a private key file when any entry has a PSK. Test: `test_s2_*`. Existing PSK peer files must now be owner-only (README) |
 | S3 | Medium | **Fixed** | A non-ASCII byte in the peer file raised `UnicodeDecodeError` during a live reload. That was not caught, so it ended the server. | `peer_reload.py` `__call__` | Also catch `ValueError` and keep the current peers. Test: `test_s3_*` |
 | S4 | Medium | Open (design) | No post-quantum forward secrecy. Both ML-KEM encapsulations go to static keys. | `vpn_handshake.py` 115, 178. ProVerif `pq_fs` | Add an ephemeral ML-KEM key per handshake, or state that the claim is classical-only. Found by ProVerif (`FORMAL_MODEL.md` finding 1); AUDIT_SCOPE question 4 |
-| S5 | Medium | Open | The global INIT budget is spent before the per-source check. One real address with a valid cookie can use up the global budget and lock out other peers. | `vpn_node.py` `_on_init` (global, then source) | Check the per-source budget first, or refund the global token when the per-source check fails |
-| S6 | Medium | Open | Under load, every INIT with a valid mac1 adds an unthrottled "cookie reply" log line. `RejectCounter` passes every line through, so this allows a log or stdout flood. | `vpn_node.py` `_on_init` | Route it through `_refuse` (rate-limited), or count it instead |
-| S7 | Low | Open | An `OSError` from `sock.sendto` (for example EPERM from a firewall, or ENETUNREACH) is not caught in the serve loops, so it ends the process. | `vpn_server.py` 116, 131, 138, 155, 197, 219, 225; `vpn_client.py` 60, 119 | Catch `OSError` around each send and log it |
+| S5 | Medium | **Fixed** (`test_s5_*`) | The global INIT budget is spent before the per-source check. One real address with a valid cookie can use up the global budget and lock out other peers. | `vpn_node.py` `_on_init` (global, then source) | Check the per-source budget first, or refund the global token when the per-source check fails |
+| S6 | Medium | **Fixed** (`test_s6_*`) | Under load, every INIT with a valid mac1 adds an unthrottled "cookie reply" log line. `RejectCounter` passes every line through, so this allows a log or stdout flood. | `vpn_node.py` `_on_init` | Route it through `_refuse` (rate-limited), or count it instead |
+| S7 | Low | **Fixed** (`test_s7_*`) | An `OSError` from `sock.sendto` (for example EPERM from a firewall, or ENETUNREACH) is not caught in the serve loops, so it ends the process. | `vpn_server.py` 116, 131, 138, 155, 197, 219, 225; `vpn_client.py` 60, 119 | Catch `OSError` around each send and log it |
 | S8 | Low | Open | A deleted state file silently resets INIT replay protection, and an older tagged file can be restored. Bounded by the 180 s freshness window. | `vpn_state.py` 92-93 | Write a tagged empty file on first run and refuse a missing file afterwards, or warn loudly. Add a counter to the tag |
 | S9 | Low | Unconfirmed (Linux only) | With `--drop-to`, the state directory is created as root, so later state writes may fail and every INIT is refused. Fails closed. | `vpn_server.py` 280-283, `tun_linux.py` `drop_privileges` | Change the directory's owner before the drop, or test writing at startup |
-| S10 | Low | Open | `apply()` removes peers before adding the new ones. If `add_peer` raises, the reload is left half-applied. | `peer_reload.py` `apply` | Validate every entry first, then apply |
+| S10 | Low | **Fixed** (`test_s10_*`) | `apply()` removes peers before adding the new ones. If `add_peer` raises, the reload is left half-applied. | `peer_reload.py` `apply` | Validate every entry first, then apply |
 | S11 | Low | Open | The Windows ACL check compares principals by name only, so `OTHERPC\alice` passes as `alice`. | `vpn_keyfiles.py` `_parse_icacls` | Compare SIDs |
 | S12 | Low | Open | A stale `next` session stays after a RESP until it expires (at most one per peer). | `vpn_node.py` `_on_resp` | Clear `peer.next` there |
 
@@ -84,5 +84,7 @@ Severity is for this prototype's threat model (`THREAT_MODEL.md`). "Fixed" means
 
 ## Retest
 
-`python -m unittest test_self_audit` passes, along with the suites that touch the fixed code. Open items stay
+`python -m unittest test_self_audit` passes, and so does the full suite. Each fix test was checked to fail
+without its fix. S7 covers the server only; the client still exits on a send error. S10's fix skips a bad
+entry, and `_safe_tick` keeps any other reload bug from ending the server. Open items stay
 in this file until they are fixed; a fix needs a test and a new audit package (`AUDIT_SCOPE.md` §8).

@@ -17,7 +17,9 @@ import vpn_keyfiles
 from vpn_keyfiles import _parse_icacls, load_peer_entries
 from vpn_crypto import encode_key
 from vpn_node import Node
-from test_vpn import A_ADDR, B_ADDR, remac1, unfinished
+from vpn_constants import LOG_BURST
+from vpn_server import _safe_tick, _send
+from test_vpn import A_ADDR, B_ADDR, forge_init, remac1, unfinished
 
 INDEX = range(4, 8)          # sender index: chosen by the sender, not part of the transcript
 
@@ -103,6 +105,40 @@ class FixedFindingTests(unittest.TestCase):
             PeerFileWatcher(node, path, lambda p: None, lines.append, None, interval=0)(0.0)
         self.assertEqual(len(node.peers), 1)
         self.assertTrue(any("refused" in l for l in lines), lines)
+
+
+class OpenFindingFixTests(unittest.TestCase):
+    def test_s5_one_source_cannot_use_up_the_global_budget(self):
+        t = [100.0]
+        a = Node(X25519PrivateKey.generate(), clock=lambda: t[0])
+        b = Node(X25519PrivateKey.generate(), clock=lambda: t[0], load_threshold=10 ** 9)
+        pa = a.add_peer(b.pub, B_ADDR, kem_pub=b.kem_pub)
+        b.add_peer(a.pub, A_ADDR, kem_pub=a.kem_pub)
+        for _ in range(5000):                                  # one address, same instant
+            b.handle(forge_init(b.pub), ("192.0.2.9", 7), t[0])
+        (init, _), = a.initiate(pa, t[0])
+        self.assertEqual(len(b.handle(init, A_ADDR, t[0]).send), 1, "the real peer was locked out")
+
+    def test_s6_cookie_reply_lines_are_rate_limited(self):
+        b = Node(X25519PrivateKey.generate(), load_threshold=0)
+        lines = sum(len(b.handle(forge_init(b.pub), ("192.0.2.9", 7)).events) for _ in range(500))
+        self.assertLessEqual(lines, LOG_BURST + 1)
+
+    def test_s7_send_error_is_logged_not_raised(self):
+        sock, lines = mock.Mock(), []
+        sock.sendto.side_effect = PermissionError(1, "Operation not permitted")
+        _send(sock, b"x", ("192.0.2.1", 1), lines.append)
+        self.assertEqual(lines, ["send to ('192.0.2.1', 1) failed: PermissionError"])
+        _safe_tick(mock.Mock(side_effect=ValueError("bug")), 0.0, lines.append)
+        self.assertIn("internal error in periodic task: ValueError", lines)
+
+    def test_s10_a_bad_entry_does_not_stop_the_good_ones(self):
+        node, lines = Node(X25519PrivateKey.generate()), []
+        good = X25519PrivateKey.generate().public_key().public_bytes_raw()
+        PeerFileWatcher(node, "unused", lambda p: None, lines.append, None).apply(
+            [(bytes(32), node.kem_pub, b""), (good, node.kem_pub, b"")])
+        self.assertEqual(list(node.peers), [good])
+        self.assertTrue(any("not added" in l for l in lines), lines)
 
 
 class ClaimTests(unittest.TestCase):

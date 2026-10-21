@@ -72,6 +72,22 @@ class RejectCounter:
         self.sink(line)
 
 
+def _send(sock: socket.socket, pkt: bytes, dst: tuple, out: Callable[[str], None]) -> None:
+    """sendto, but a send error (EPERM from a firewall, ENETUNREACH) only costs this datagram (SELF_AUDIT S7)."""
+    try:
+        sock.sendto(pkt, dst)
+    except OSError as e:
+        out(f"send to {dst} failed: {type(e).__name__}")
+
+
+def _safe_tick(on_tick: Callable[[float], None], now: float, out: Callable[[str], None]) -> None:
+    """The periodic hook (peer file reload). A bug in it must not end the server (SELF_AUDIT S3, S10)."""
+    try:
+        on_tick(now)
+    except Exception as e:                                   # noqa: BLE001 - keep serving on any bug
+        out(f"internal error in periodic task: {type(e).__name__}")
+
+
 def _safe_handle(node: Node, data: bytes, addr: tuple, now: float, out: Callable[[str], None]):
     """Node.handle, but an unexpected exception (a bug, not a protocol failure) only costs this
     datagram. The log gets the exception type, never its message, so no key or packet data leaks."""
@@ -111,9 +127,9 @@ def serve(sock: socket.socket, node: Node, idle_timeout=None, echo=True, show_pa
         except socket.timeout:
             now = node.clock()
             if on_tick is not None:
-                on_tick(now)           # e.g. peer file reload; runs in this thread, so Node stays single-threaded
+                _safe_tick(on_tick, now, out)           # e.g. peer file reload; runs in this thread, so Node stays single-threaded
             for pkt, dst in _safe_poll(node, now, out):
-                sock.sendto(pkt, dst)
+                _send(sock, pkt, dst, out)
             next_timers = now + tick
             if idle_timeout is None or now - last_rx >= idle_timeout:
                 return
@@ -126,16 +142,16 @@ def serve(sock: socket.socket, node: Node, idle_timeout=None, echo=True, show_pa
         if now >= next_timers:
             # Timers also run under steady traffic, where recvfrom never times out. One run per tick.
             if on_tick is not None:
-                on_tick(now)
+                _safe_tick(on_tick, now, out)
             for pkt, dst in _safe_poll(node, now, out):
-                sock.sendto(pkt, dst)
+                _send(sock, pkt, dst, out)
             next_timers = now + tick
         last_rx = now
         act = _safe_handle(node, data, addr, now, out)
         if act is None:
             continue
         for pkt, dst in act.send:
-            sock.sendto(pkt, dst)
+            _send(sock, pkt, dst, out)
         for line in act.events:
             out(line)
         if not act.inner:                 # None: not data. b"": keepalive, nothing to show.
@@ -152,7 +168,7 @@ def serve(sock: socket.socket, node: Node, idle_timeout=None, echo=True, show_pa
                 src, dst, proto, payload = parse_ipv4(act.inner)
                 sent = node.send(act.peer, build_ipv4(dst, src, proto, b"ack: " + payload), now)
                 if sent is not None:
-                    sock.sendto(sent[0], sent[1])
+                    _send(sock, sent[0], sent[1], out)
             except (ESPError, RekeyRequired) as e:
                 out(f"reply not sent: {getattr(e, 'reason', 'rekey required')}")
 
@@ -194,7 +210,7 @@ def serve_tun(sock: socket.socket, node: Node, tun: TunDevice, idle_timeout=math
             last_rx = now
             act = _safe_handle(node, data, addr, now, out)
             for pkt, dst in (act.send if act is not None else []):
-                sock.sendto(pkt, dst)
+                _send(sock, pkt, dst, out)
             for line in (act.events if act is not None else []):
                 out(line)
             if act is not None and act.inner:
@@ -216,13 +232,13 @@ def serve_tun(sock: socket.socket, node: Node, tun: TunDevice, idle_timeout=math
                         out(f"dropped tun packet: {getattr(e, 'reason', 'rekey required')}")
                     else:
                         if sent is not None:
-                            sock.sendto(sent[0], sent[1])
+                            _send(sock, sent[0], sent[1], out)
         if now >= next_timers:
             # Fixed schedule: at most one timer run per tick, however busy the device is.
             if on_tick is not None:
-                on_tick(now)
+                _safe_tick(on_tick, now, out)
             for pkt, dst in _safe_poll(node, now, out):
-                sock.sendto(pkt, dst)
+                _send(sock, pkt, dst, out)
             next_timers = now + tick
         if now - last_rx >= idle_timeout:
             return
