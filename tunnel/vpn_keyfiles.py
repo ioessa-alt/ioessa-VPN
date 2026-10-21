@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from vpn_constants import KEM_KEY_ENV, KEM_KEY_FILE_ENV, KEY_ENV, KEY_FILE_ENV, PEER_ENV, PSK_ENV
 from vpn_crypto import check_psk, kem_private_from_b64, kem_public_from_b64, private_key_from_b64, public_key_from_b64
 
-WINDOWS_TRUSTED = ("SYSTEM", "Administrators")      # principals allowed on a key file, besides the user
+WINDOWS_TRUSTED = ("NT AUTHORITY\\SYSTEM", "BUILTIN\\Administrators")   # allowed on a key file, besides the user
 # icacls tokens that grant nothing: inheritance flags, (N) for no access, and the integrity-label policies (NW, NR, NX) of a
 # "Mandatory Label" line. Every other token is a right.
 WINDOWS_INHERIT_FLAGS = {"I", "OI", "CI", "IO", "NP", "N", "NW", "NR", "NX"}
@@ -20,9 +20,9 @@ _ICACLS_ACE = re.compile(r"([^:]+):((?:\([^)]*\))+)")
 
 def _parse_icacls(text: str, path: str = "") -> List[Tuple[str, frozenset]]:
     """(principal, grant rights) for each allow ACE in `icacls <path>` output. The path itself is
-    removed first, since the first ACE can share its line. Principal names keep only the part
-    after the last backslash, so `BUILTIN\\Administrators` is `Administrators`. Inheritance flags
-    such as (I) and (OI) grant nothing and are dropped. DENY ACEs are skipped."""
+    removed first, since the first ACE can share its line. Principal names keep their domain, so
+    `BUILTIN\\Administrators` stays as printed (SELF_AUDIT S11). Inheritance flags such as (I)
+    and (OI) grant nothing and are dropped. DENY ACEs are skipped."""
     entries = []
     for line in text.splitlines():
         if path:
@@ -33,15 +33,18 @@ def _parse_icacls(text: str, path: str = "") -> List[Tuple[str, frozenset]]:
                 continue
             # Specific rights print comma-joined in one group, e.g. (RD,REA,RA): split them (SELF_AUDIT S1).
             rights = frozenset(r for t in tokens for r in t.split(",") if r and r not in WINDOWS_INHERIT_FLAGS)
-            entries.append((who.rsplit("\\", 1)[-1].strip(), rights))
+            entries.append((who.strip(), rights))
     return entries
 
 
-def _check_windows_acl(path: str, run: Callable = subprocess.run, user: Optional[str] = None) -> None:
+def _check_windows_acl(path: str, run: Callable = subprocess.run, user: Optional[str] = None,
+                       domain: Optional[str] = None) -> None:
     """Windows: refuse a private key file that grants access to anyone other than the current
-    user, SYSTEM or Administrators. Reads the DACL with `icacls`. Fails closed: if the ACL cannot
-    be read or has no entries, the load is refused. Principal names are matched in English, so
-    on a localized Windows the check may refuse until the extra entries are removed."""
+    user (`USERDOMAIN\\USERNAME`), `NT AUTHORITY\\SYSTEM` or `BUILTIN\\Administrators`. Reads the
+    DACL with `icacls`. Fails closed: if the ACL cannot be read or has no entries, the load is
+    refused. Principals are compared with their domain, so `OTHERPC\\alice` is not the user
+    (SELF_AUDIT S11); a bare name with no domain may still match the user name. Names are matched
+    in English, so on a localized Windows the check may refuse until the extra entries are removed."""
     try:
         result = run(["icacls", path], capture_output=True, text=True, check=False)
     except OSError as e:
@@ -51,7 +54,9 @@ def _check_windows_acl(path: str, run: Callable = subprocess.run, user: Optional
     entries = _parse_icacls(result.stdout, path)
     if not entries:
         raise RuntimeError(f"no ACL entries found for {path}; refusing to load it")
-    allowed = {(user or os.environ.get("USERNAME") or "").lower(), *(p.lower() for p in WINDOWS_TRUSTED)}
+    user = (user or os.environ.get("USERNAME") or "").lower()
+    domain = (domain or os.environ.get("USERDOMAIN") or "").lower()
+    allowed = {user, f"{domain}\\{user}", *(p.lower() for p in WINDOWS_TRUSTED)}
     stray = sorted({who for who, rights in entries if rights and who.lower() not in allowed})
     if stray:
         raise RuntimeError(f"private key file {path} grants access to {', '.join(stray)}. "

@@ -199,43 +199,43 @@ class KeyFileModeTests(unittest.TestCase):
                f"                BUILTIN\\Administrators:(I)(F)\n"
                f"                DESKTOP-1\\alice:(I)(F)\n\n"
                "Successfully processed 1 files; Failed processing 0 files\n")
-        _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice")
+        _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice", domain="DESKTOP-1")
 
     def test_windows_other_principal_with_access_is_refused(self):
         out = (f"{self.KEY_PATH} DESKTOP-1\\alice:(F)\n"
                "                DESKTOP-1\\bob:(R)\n")
         with self.assertRaises(RuntimeError) as cm:
-            _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice")
+            _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice", domain="DESKTOP-1")
         self.assertIn("bob", str(cm.exception))
 
     def test_windows_everyone_with_access_is_refused(self):
         out = f"{self.KEY_PATH} Everyone:(R)\n"          # first ACE on the path's line
         with self.assertRaises(RuntimeError) as cm:
-            _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice")
+            _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice", domain="DESKTOP-1")
         self.assertIn("grants access to Everyone.", str(cm.exception))
 
     def test_windows_deny_entry_does_not_grant(self):
         out = (f"{self.KEY_PATH} DESKTOP-1\\alice:(F)\n"
                "                Everyone:(DENY)(R)\n")
-        _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice")
+        _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice", domain="DESKTOP-1")
 
     def test_windows_entry_with_no_rights_does_not_grant(self):
         out = (f"{self.KEY_PATH} DESKTOP-1\\alice:(F)\n"
                "                Guests:(N)\n")
-        _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice")
+        _check_windows_acl(self.KEY_PATH, run=self._icacls(out), user="alice", domain="DESKTOP-1")
 
     def test_windows_unreadable_acl_fails_closed(self):
         with self.assertRaises(RuntimeError):
-            _check_windows_acl(self.KEY_PATH, run=self._icacls("", returncode=5), user="alice")
+            _check_windows_acl(self.KEY_PATH, run=self._icacls("", returncode=5), user="alice", domain="DESKTOP-1")
         with self.assertRaises(RuntimeError) as cm:
-            _check_windows_acl(self.KEY_PATH, run=self._icacls("Successfully processed 1 files\n"), user="alice")
+            _check_windows_acl(self.KEY_PATH, run=self._icacls("Successfully processed 1 files\n"), user="alice", domain="DESKTOP-1")
         self.assertIn("no ACL entries", str(cm.exception))
 
     def test_windows_missing_icacls_fails_closed(self):
         def run(args, **kwargs):
             raise FileNotFoundError("icacls")
         with self.assertRaises(RuntimeError):
-            _check_windows_acl(self.KEY_PATH, run=run, user="alice")
+            _check_windows_acl(self.KEY_PATH, run=run, user="alice", domain="DESKTOP-1")
 
     def test_windows_check_is_used_when_not_posix(self):
         with mock.patch("vpn_keyfiles._check_windows_acl") as check:

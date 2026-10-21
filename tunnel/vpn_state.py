@@ -64,8 +64,10 @@ class TimestampStore:
     """Last accepted INIT timestamp per peer, kept on disk so replay protection survives a restart.
 
     File format: a JSON object, {base64 peer public key: hex TAI64N timestamp}. The file is read
-    once, in __init__. A missing file means no entries. An unreadable or malformed file raises
-    StateFileError, so the caller can refuse to start. Nothing is ever reset silently.
+    once, in __init__. A missing file means no entries on a first run only: the first successful
+    save() also creates a sentinel `<path>.seen`, and a missing file next to that sentinel raises
+    StateFileError (SELF_AUDIT S8). An unreadable or malformed file raises StateFileError, so the
+    caller can refuse to start. Nothing is ever reset silently.
 
     save() writes the whole map atomically, and the in-memory map changes only after the write
     succeeds. Node calls save() before it accepts a timestamp and sends the RESP.
@@ -76,6 +78,7 @@ class TimestampStore:
         # With a key (see state_key), the file carries an HMAC over the peer map, so an edited or
         # copied file is refused at startup (open issue 30). Without a key, no tag is written.
         self._key = key
+        self.sentinel = self.path + ".seen"        # exists once a state file has been written (SELF_AUDIT S8)
         self._data: Dict[bytes, bytes] = self._load()
 
     def _tag(self, data: Dict[bytes, bytes]) -> str:
@@ -90,6 +93,10 @@ class TimestampStore:
             with open(self.path, "rb") as f:
                 raw = f.read()
         except FileNotFoundError:
+            if os.path.exists(self.sentinel):
+                raise StateFileError(f"state file {self.path} is missing but {self.sentinel} shows one was written. "
+                                     f"Restore it, or remove both to start over. The server will not reset it, "
+                                     f"because that would reopen replay.") from None
             return {}
         except OSError as e:
             raise StateFileError(f"cannot read state file {self.path}: {e.strerror or e}") from None
@@ -143,3 +150,5 @@ class TimestampStore:
             doc[STATE_TAG_KEY] = self._tag(new)
         _atomic_write(self.path, (json.dumps(doc, indent=2, sort_keys=True) + "\n").encode("utf-8"))
         self._data = new
+        if not os.path.exists(self.sentinel):       # mark that a state file now exists (SELF_AUDIT S8)
+            _atomic_write(self.sentinel, b"")

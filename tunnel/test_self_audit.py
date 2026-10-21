@@ -8,17 +8,18 @@ import unittest
 from unittest import mock
 
 from vpn_constants import INIT_MAC1, RESP_MAC1
-from vpn_errors import HandshakeError
+from vpn_errors import HandshakeError, StateFileError
 from vpn_handshake import consume_initiation, consume_response, finish_initiation
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from peer_reload import PeerFileWatcher
 import vpn_keyfiles
-from vpn_keyfiles import _parse_icacls, load_peer_entries
+from vpn_keyfiles import _check_windows_acl, _parse_icacls, load_peer_entries
 from vpn_crypto import encode_key
 from vpn_node import Node
 from vpn_constants import LOG_BURST
 from vpn_server import _safe_tick, _send
+from vpn_state import TimestampStore
 from test_vpn import A_ADDR, B_ADDR, forge_init, remac1, unfinished
 
 INDEX = range(4, 8)          # sender index: chosen by the sender, not part of the transcript
@@ -75,11 +76,11 @@ class FixedFindingTests(unittest.TestCase):
         """icacls prints specific rights comma-joined; Everyone:(RD,REA,RA) can read the key and must be seen."""
         entries = _parse_icacls("k.key Everyone:(RD,REA,RA)\n      NT AUTHORITY\\SYSTEM:(I)(F)\n", "k.key")
         self.assertEqual(dict(entries)["Everyone"], frozenset({"RD", "REA", "RA"}))
-        self.assertEqual(dict(entries)["SYSTEM"], frozenset({"F"}))
+        self.assertEqual(dict(entries)["NT AUTHORITY\\SYSTEM"], frozenset({"F"}))
 
     def test_s1_integrity_label_is_not_a_grant(self):
         entries = _parse_icacls("k.key Mandatory Label\\High Mandatory Level:(NW)\n", "k.key")
-        self.assertEqual(dict(entries)["High Mandatory Level"], frozenset())
+        self.assertEqual(dict(entries)["Mandatory Label\\High Mandatory Level"], frozenset())
 
     def test_s2_peer_file_with_a_psk_gets_the_permission_check(self):
         node = Node(X25519PrivateKey.generate())
@@ -131,6 +132,36 @@ class OpenFindingFixTests(unittest.TestCase):
         self.assertEqual(lines, ["send to ('192.0.2.1', 1) failed: PermissionError"])
         _safe_tick(mock.Mock(side_effect=ValueError("bug")), 0.0, lines.append)
         self.assertIn("internal error in periodic task: ValueError", lines)
+
+    def test_s8_a_deleted_state_file_is_refused_after_the_first_save(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            store = TimestampStore(path)                       # genuine first run: empty, no sentinel
+            self.assertFalse(os.path.exists(store.sentinel))
+            store.save(bytes(32), bytes(12))
+            self.assertTrue(os.path.exists(store.sentinel))
+            os.remove(path)                                    # only the state file goes missing
+            with self.assertRaises(StateFileError) as cm:
+                TimestampStore(path)
+            self.assertIn("is missing", str(cm.exception))
+            self.assertFalse(os.path.exists(path), "the store recreated the file")
+
+    def test_s11_same_name_on_another_domain_is_refused(self):
+        def icacls(args, **kwargs):
+            return mock.Mock(stdout=r"C:\k.key OTHERPC\alice:(F)" "\n" r"         DESKTOP-1\alice:(F)" "\n", returncode=0)
+        with self.assertRaises(RuntimeError) as cm:
+            _check_windows_acl(r"C:\k.key", run=icacls, user="alice", domain="DESKTOP-1")
+        self.assertIn("OTHERPC\\alice", str(cm.exception))
+        self.assertNotIn("DESKTOP-1", str(cm.exception))
+        # Case-insensitive on the full name; the well-known principals need their domain too.
+        def icacls2(args, **kwargs):
+            return mock.Mock(stdout="C:\\k.key desktop-1\\Alice:(F)\n      NT AUTHORITY\\SYSTEM:(F)\n"
+                                    "      BUILTIN\\Administrators:(F)\n", returncode=0)
+        _check_windows_acl(r"C:\k.key", run=icacls2, user="alice", domain="DESKTOP-1")
+        def icacls3(args, **kwargs):
+            return mock.Mock(stdout="C:\\k.key OTHERPC\\Administrators:(F)\n", returncode=0)
+        with self.assertRaises(RuntimeError):
+            _check_windows_acl(r"C:\k.key", run=icacls3, user="alice", domain="DESKTOP-1")
 
     def test_s10_a_bad_entry_does_not_stop_the_good_ones(self):
         node, lines = Node(X25519PrivateKey.generate()), []
