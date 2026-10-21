@@ -21,7 +21,7 @@ Queries, in order: (1) secrecy of data A->B, (2) secrecy of data B->A, (3) A aut
 | `quantum_nopsk` | X25519 broken, no PSK | no answer in 1800 s | not run | not run | not run | not run |
 | `quantum_psk` | X25519 broken, PSK set | not run | | | | |
 | `kem_broken` | ML-KEM broken, no PSK | not run | | | | |
-| `kci_nopsk` | B's static keys stolen, no PSK | not run | | | | |
+| `kci_nopsk` | B's static keys stolen, no PSK | no answer in 1800 s (attack expected) | not run | not run | not run | not run |
 
 The slowest query is (3), injective agreement: 352-957 s per variant. The others take 6-40 s.
 Runs stopped twice when the PC ran low on memory; only finished results are listed.
